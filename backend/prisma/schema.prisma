@@ -1,0 +1,97 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id  Int    @id @default(autoincrement())
+  name    String?
+  username String @unique
+  password String
+  blogs    Blog[]
+  // Users that this user is following
+  following Follow[] @relation("UserFollows")
+  // Users that are following this user
+  followers Follow[] @relation("UserFollowings")
+  // User interactions
+  likes     Like[]
+  comments  Comment[]
+  savedPosts SavedPost[]
+}
+
+model Blog {
+  id  Int    @id @default(autoincrement())
+  authorId   Int
+  content    String
+  title       String
+  published Boolean  @default(false)
+  author    User @relation(fields: [authorId], references: [id])
+  likes     Like[]
+  comments  Comment[]
+  savedBy   SavedPost[]
+}
+
+// Join table for user follow relationships
+model Follow {
+  followerId  Int
+  followingId Int
+  createdAt   DateTime @default(now())
+
+  // The user who follows
+  follower  User @relation("UserFollows", fields: [followerId], references: [id])
+  // The user who is being followed
+  following User @relation("UserFollowings", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
+
+// Blog likes
+model Like {
+  id      Int @id @default(autoincrement())
+  userId  Int
+  blogId  Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  blog Blog @relation(fields: [blogId], references: [id])
+
+  @@unique([userId, blogId])
+}
+
+// Blog comments with optional replies
+model Comment {
+  id        Int @id @default(autoincrement())
+  content   String
+  userId    Int
+  blogId    Int
+  parentId  Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User @relation(fields: [userId], references: [id])
+  blog   Blog @relation(fields: [blogId], references: [id])
+  parent Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies Comment[] @relation("CommentReplies")
+
+  @@index([blogId])
+  @@index([parentId])
+}
+
+// Saved posts
+model SavedPost {
+  id        Int @id @default(autoincrement())
+  userId    Int
+  blogId    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  blog Blog @relation(fields: [blogId], references: [id])
+
+  @@unique([userId, blogId])
+}
