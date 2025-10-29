@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { withAccelerate } from '@prisma/extension-accelerate';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { signupInput, signinInput } from "@100xdevs/medium-common";
+import { signupInput, signinInput } from "../../index";
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "Harshal";

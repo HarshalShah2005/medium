@@ -1,5 +1,5 @@
 import express from 'express';
-import { createBlogInput, updateBlogInput } from "@100xdevs/medium-common";
+import { createBlogInput, updateBlogInput } from "../../index";
 import { PrismaClient } from "@prisma/client";
 import { withAccelerate } from "@prisma/extension-accelerate";
 import jwt from 'jsonwebtoken';
