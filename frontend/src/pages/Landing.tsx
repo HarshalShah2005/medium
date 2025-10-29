@@ -19,10 +19,10 @@ export const Landing = () => {
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">M</span>
+              <span className="text-white font-bold text-xl">B</span>
             </div>
             <span className="text-2xl font-bold text-black">
-              Medium
+              Blogify
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -355,9 +355,9 @@ export const Landing = () => {
             <div>
               <div className="flex items-center space-x-2 mb-4">
                 <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-                  <span className="text-black font-bold text-xl">M</span>
+                  <span className="text-black font-bold text-xl">B</span>
                 </div>
-                <span className="text-xl font-bold text-white">Medium</span>
+                <span className="text-xl font-bold text-white">Blogify</span>
               </div>
               <p className="text-sm text-gray-400">
                 Empowering writers with AI-powered tools to create and share amazing stories.
@@ -394,7 +394,7 @@ export const Landing = () => {
           
           <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center">
             <p className="text-sm text-gray-400">
-              © 2025 Medium. All rights reserved.
+              © 2025 Blogify. All rights reserved.
             </p>
             <div className="flex gap-6 mt-4 md:mt-0">
               <a href="#" className="text-gray-400 hover:text-white transition-colors">
