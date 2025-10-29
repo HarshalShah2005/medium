@@ -6,6 +6,7 @@ import { Blogs } from "./pages/Blogs";
 import { Publish } from './pages/Publish';
 import { Profile } from './pages/Profile';
 import DemoAISummary from './pages/DemoAISummary';
+import { Landing } from './pages/Landing';
 
 function App() {
 
@@ -18,6 +19,7 @@ function App() {
         }}
       >
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/signin" element={<Signin />} />
           <Route path="/blog/:id" element={<Blog />} />
