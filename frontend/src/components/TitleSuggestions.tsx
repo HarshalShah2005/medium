@@ -9,7 +9,6 @@ interface TitleSuggestionsProps {
 
 const TitleSuggestions: React.FC<TitleSuggestionsProps> = ({
   content,
-  currentTitle,
   onTitleSelect,
 }) => {
   const [suggestions, setSuggestions] = useState<string[]>([]);

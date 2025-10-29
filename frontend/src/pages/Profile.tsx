@@ -1,19 +1,75 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Appbar } from '../components/Appbar';
 import { Spinner } from '../components/Spinner';
 import { BlogCard } from '../components/BlogCard';
 import { BACKEND_URL } from '../config';
-import { 
-  UserProfile, 
-  ProfileStats, 
-  ProfileTab, 
-  ProfileBlog, 
-  ProfileLike, 
-  ProfileComment, 
-  ProfileSavedPost,
-  FollowUser 
-} from '@100xdevs/medium-common';
+
+// Profile related types
+interface UserProfile {
+  id: number;
+  name: string | null;
+  username: string;
+  followerCount: number;
+  followingCount: number;
+  blogCount: number;
+  isFollowing?: boolean;
+}
+
+interface FollowUser {
+  id: number;
+  name: string | null;
+  username: string;
+}
+
+interface ProfileStats {
+  followerCount: number;
+  followingCount: number;
+  blogCount: number;
+  likeCount: number;
+  commentCount: number;
+  savedCount: number;
+}
+
+interface ProfileBlog {
+  id: number;
+  title: string;
+  content: string;
+  createdAt?: string;
+  likeCount: number;
+  commentCount: number;
+  liked?: boolean;
+  saved?: boolean;
+  author?: {
+    name: string | null;
+    username: string;
+  };
+}
+
+interface ProfileComment {
+  id: number;
+  content: string;
+  createdAt: string;
+  blogId: number;
+  blog: {
+    id: number;
+    title: string;
+  };
+}
+
+interface ProfileLike {
+  id: number;
+  createdAt: string;
+  blog: ProfileBlog;
+}
+
+interface ProfileSavedPost {
+  id: number;
+  createdAt: string;
+  blog: ProfileBlog;
+}
+
+type ProfileTab = 'posts' | 'likes' | 'comments' | 'saved';
 
 interface ProfileResponse {
   profile: UserProfile;
@@ -140,13 +196,13 @@ export function Profile() {
       
       if (!response.ok) throw new Error(`Failed to ${endpoint}`);
       
-      setProfile(prev => prev ? {
+      setProfile((prev: UserProfile | null) => prev ? {
         ...prev,
         isFollowing: !prev.isFollowing,
         followerCount: prev.isFollowing ? prev.followerCount - 1 : prev.followerCount + 1
       } : null);
       
-      setStats(prev => prev ? {
+      setStats((prev: ProfileStats | null) => prev ? {
         ...prev,
         followerCount: profile.isFollowing ? prev.followerCount - 1 : prev.followerCount + 1
       } : null);
@@ -195,8 +251,8 @@ export function Profile() {
       });
       
       if (response.ok) {
-        setFollowers(prev => prev.filter(f => f.id !== followerId));
-        setStats(prev => prev ? { ...prev, followerCount: prev.followerCount - 1 } : null);
+        setFollowers((prev: FollowUser[]) => prev.filter(f => f.id !== followerId));
+        setStats((prev: ProfileStats | null) => prev ? { ...prev, followerCount: prev.followerCount - 1 } : null);
       }
     } catch (error) {
       console.error('Error removing follower:', error);
@@ -212,8 +268,8 @@ export function Profile() {
       });
       
       if (response.ok) {
-        setPosts(prev => prev.filter(p => p.id !== postId));
-        setStats(prev => prev ? { ...prev, blogCount: prev.blogCount - 1 } : null);
+        setPosts((prev: ProfileBlog[]) => prev.filter(p => p.id !== postId));
+        setStats((prev: ProfileStats | null) => prev ? { ...prev, blogCount: prev.blogCount - 1 } : null);
       }
     } catch (error) {
       console.error('Error deleting post:', error);
@@ -229,8 +285,8 @@ export function Profile() {
       });
       
       if (response.ok) {
-        setComments(prev => prev.filter(c => c.id !== commentId));
-        setStats(prev => prev ? { ...prev, commentCount: prev.commentCount - 1 } : null);
+        setComments((prev: ProfileComment[]) => prev.filter(c => c.id !== commentId));
+        setStats((prev: ProfileStats | null) => prev ? { ...prev, commentCount: prev.commentCount - 1 } : null);
       }
     } catch (error) {
       console.error('Error deleting comment:', error);
@@ -246,8 +302,8 @@ export function Profile() {
       });
       
       if (response.ok) {
-        setLikes(prev => prev.filter(l => l.blog.id !== blogId));
-        setStats(prev => prev ? { ...prev, likeCount: prev.likeCount - 1 } : null);
+        setLikes((prev: ProfileLike[]) => prev.filter(l => l.blog.id !== blogId));
+        setStats((prev: ProfileStats | null) => prev ? { ...prev, likeCount: prev.likeCount - 1 } : null);
       }
     } catch (error) {
       console.error('Error unliking post:', error);
@@ -263,8 +319,8 @@ export function Profile() {
       });
       
       if (response.ok) {
-        setSavedPosts(prev => prev.filter(s => s.blog.id !== blogId));
-        setStats(prev => prev ? { ...prev, savedCount: prev.savedCount - 1 } : null);
+        setSavedPosts((prev: ProfileSavedPost[]) => prev.filter(s => s.blog.id !== blogId));
+        setStats((prev: ProfileStats | null) => prev ? { ...prev, savedCount: prev.savedCount - 1 } : null);
       }
     } catch (error) {
       console.error('Error unsaving post:', error);

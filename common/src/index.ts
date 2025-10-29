@@ -89,5 +89,3 @@ export interface ProfileSavedPost {
 }
 
 export type ProfileTab = 'posts' | 'likes' | 'comments' | 'saved';
-
-
