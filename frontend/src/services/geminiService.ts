@@ -35,10 +35,7 @@ export class GeminiService {
         
         // Prioritize the most efficient free tier models to avoid quota issues
         const preferredModels = [
-          'gemini-2.5-flash-lite',
-          'gemini-2.0-flash-lite',
-          'gemini-2.5-flash',
-          'gemini-2.0-flash'
+          'gemini-2.5-flash'
         ];
         
         // Find the first available preferred model
