@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
 export interface BlogSummary {
   summary: string;
@@ -25,8 +25,10 @@ export class GeminiService {
   // Get the best available model for free tier
   private getBestModel(): string {
     // Use the most reliable free tier model
-    // gemini-1.5-flash is the most stable and widely available free model
-    return 'gemini-1.5-flash';
+    // Try different model names based on API version compatibility
+    // For v1 API, use 'gemini-pro' or 'gemini-1.5-pro-latest'
+    // For newer APIs, 'gemini-1.5-flash-latest' or 'gemini-pro' work best
+    return 'gemini-2.5-flash'; // More stable across API versions
   }
 
   async summarizeBlog(blogContent: string, blogTitle: string): Promise<BlogSummary> {
@@ -149,31 +151,117 @@ export class GeminiService {
   // General content generation for AI writing assistance
   async generateContent(prompt: string, maxTokens: number = 200): Promise<string> {
     if (!this.genAI || !this.apiKey) {
-      console.warn('Gemini API key not available, returning empty response');
-      return '';
+      console.warn('Gemini API key not available');
+      throw new Error('AI service is not configured. Please check your API key.');
     }
 
     try {
       // Get the best model for free tier
       const modelName = this.getBestModel();
+      console.log('Generating content with model:', modelName);
 
       const model = this.genAI.getGenerativeModel({
         model: modelName,
         generationConfig: {
           temperature: 0.7,
           maxOutputTokens: maxTokens,
-        }
+          topP: 0.95,
+          topK: 40,
+        },
+        safetySettings: [
+          {
+            category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+          },
+        ]
       });
 
+      console.log('Sending prompt to Gemini API...');
       const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      
+      console.log('Received result from Gemini API');
+      console.log('Result:', JSON.stringify(result, null, 2));
+      
+      // Check for safety blocks or other issues
+      if (!result || !result.response) {
+        console.error('No response object from AI service');
+        throw new Error('No response from AI service');
+      }
 
+      const response = result.response;
+      
+      // Check if the response was blocked
+      if (response.promptFeedback?.blockReason) {
+        console.error('Response blocked:', response.promptFeedback.blockReason);
+        throw new Error(`Content blocked: ${response.promptFeedback.blockReason}. Please try rephrasing.`);
+      }
+
+      // Check candidates
+      if (!response.candidates || response.candidates.length === 0) {
+        console.error('No candidates in response');
+        throw new Error('AI service returned no content candidates. Please try again.');
+      }
+
+      const candidate = response.candidates[0];
+      
+      // Check if candidate was blocked
+      if (candidate.finishReason && candidate.finishReason !== 'STOP' && candidate.finishReason !== 'MAX_TOKENS') {
+        console.error('Content blocked with reason:', candidate.finishReason);
+        throw new Error(`Content generation stopped: ${candidate.finishReason}. Please try rephrasing.`);
+      }
+
+      // Extract text from candidate
+      let text = '';
+      try {
+        text = response.text();
+      } catch (textError: any) {
+        console.error('Error extracting text:', textError);
+        
+        // Try to extract text manually from candidate
+        if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+          text = candidate.content.parts.map((part: any) => part.text || '').join('');
+        }
+      }
+
+      if (!text || text.trim().length === 0) {
+        console.error('Empty text after extraction');
+        console.error('Candidate:', JSON.stringify(candidate, null, 2));
+        throw new Error('AI service returned empty content. This might be due to safety filters or quota limits. Please try rephrasing or try again later.');
+      }
+
+      console.log('Content generated successfully, length:', text.length);
       return text.trim();
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Content generation failed:', error);
-      return '';
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      
+      // Provide more specific error messages
+      if (error.message?.includes('quota') || error.message?.includes('429')) {
+        throw new Error('AI service quota exceeded. Please try again later or use a different API key.');
+      } else if (error.message?.includes('API key') || error.message?.includes('401')) {
+        throw new Error('Invalid API key. Please check your configuration.');
+      } else if (error.message?.includes('SAFETY') || error.message?.includes('blocked')) {
+        throw new Error('Content blocked by safety filters. Please try rephrasing with different words.');
+      } else if (error.message?.includes('RECITATION')) {
+        throw new Error('Content flagged as potential plagiarism. Please try rephrasing.');
+      } else if (error.message?.includes('empty content')) {
+        throw error; // Re-throw our custom error with full message
+      } else {
+        throw new Error(error.message || 'Failed to generate content. Please try again.');
+      }
     }
   }
 }

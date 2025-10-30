@@ -123,36 +123,49 @@ class AIWritingService {
         throw new Error('No text provided for completion');
       }
 
+      if (request.text.trim().length < 10) {
+        throw new Error('Please provide more text (at least 10 characters)');
+      }
+
       // Limit text length to avoid quota issues
       const limitedText = request.text.substring(0, 800);
       let prompt = '';
+      let maxTokens = 250;
       
       switch (request.type) {
         case 'continue':
-          prompt = `Continue this text naturally. Provide ONLY the continuation (2-3 sentences):\n\n${limitedText}\n\nContinuation:`;
+          prompt = `Continue this text naturally. Write 2-3 more sentences that flow naturally from the existing text. Provide ONLY the continuation without repeating the original text:\n\n"${limitedText}"\n\nContinuation:`;
+          maxTokens = 150;
           break;
           
         case 'improve':
-          prompt = `Improve this text to make it more engaging and clear. Provide ONLY the improved version:\n\n${limitedText}\n\nImproved:`;
+          prompt = `Improve this text to make it more engaging, clear, and professional. Maintain the same meaning but enhance the writing quality. Provide ONLY the improved version:\n\n"${limitedText}"\n\nImproved version:`;
+          maxTokens = 300;
           break;
           
         case 'rephrase':
-          prompt = `Rephrase this text while keeping the same meaning. Provide ONLY the rephrased version:\n\n${limitedText}\n\nRephrased:`;
+          prompt = `Rephrase this text using different words while keeping exactly the same meaning. Provide ONLY the rephrased version:\n\n"${limitedText}"\n\nRephrased:`;
+          maxTokens = 250;
           break;
           
         case 'summarize':
-          prompt = `Summarize this text in 2-3 sentences:\n\n${limitedText}\n\nSummary:`;
+          prompt = `Summarize this text in 2-3 clear sentences:\n\n"${limitedText}"\n\nSummary:`;
+          maxTokens = 150;
           break;
           
         default:
-          prompt = `Continue this text naturally (2-3 sentences):\n\n${limitedText}\n\nContinuation:`;
+          prompt = `Continue this text naturally (2-3 sentences):\n\n"${limitedText}"\n\nContinuation:`;
+          maxTokens = 150;
       }
 
-      const response = await geminiService.generateContent(prompt, 250);
+      console.log('Requesting AI completion for type:', request.type);
+      const response = await geminiService.generateContent(prompt, maxTokens);
       
       if (!response || response.trim().length === 0) {
-        throw new Error('Empty response from AI service');
+        throw new Error('AI service returned an empty response. Please try again or check your API quota.');
       }
+
+      console.log('AI completion successful, response length:', response.length);
 
       // For better results, only get one main suggestion to save quota
       // Don't generate multiple alternatives to avoid quota exhaustion
@@ -162,6 +175,9 @@ class AIWritingService {
       };
     } catch (error) {
       console.error('Text completion error:', error);
+      if (error instanceof Error) {
+        throw error; // Re-throw the original error with its message
+      }
       throw new Error('Failed to generate text completion. Please check your internet connection and try again.');
     }
   }

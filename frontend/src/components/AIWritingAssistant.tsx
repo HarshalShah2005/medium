@@ -55,23 +55,45 @@ const AIWritingAssistant: React.FC<AIWritingAssistantProps> = ({
 
   // Get text completion
   const getTextCompletion = useCallback(async (type: 'continue' | 'improve' | 'rephrase') => {
-    if (!content.trim()) return;
+    if (!content.trim()) {
+      setError('Please enter some text first.');
+      return;
+    }
     
     setLoading(true);
+    setError('');
+    setTextSuggestions([]); // Clear previous suggestions
     try {
       // Extract plain text from HTML
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = content;
       const plainText = tempDiv.textContent || tempDiv.innerText || '';
       
+      if (plainText.length < 10) {
+        setError('Please write more content (at least 10 characters) before using AI assistance.');
+        return;
+      }
+      
+      if (plainText.length > 1000) {
+        setError('Text is too long. Please try with shorter content (max 1000 characters).');
+        return;
+      }
+      
       const result = await aiWritingService.getTextCompletion({
         text: plainText,
         type: type
       });
       
-      setTextSuggestions([result.completion, ...result.suggestions]);
+      if (!result.completion || result.completion.trim().length === 0) {
+        setError('AI service returned an empty response. Please try again.');
+        return;
+      }
+      
+      setTextSuggestions([result.completion, ...result.suggestions].filter(s => s && s.trim()));
+      setError('');
     } catch (error) {
       console.error('Text completion failed:', error);
+      setError(error instanceof Error ? error.message : 'Failed to generate suggestions. Please check your internet connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -173,7 +195,11 @@ const AIWritingAssistant: React.FC<AIWritingAssistantProps> = ({
             {/* Tabs */}
             <div className="flex space-x-1 mb-4">
               <button
-                onClick={() => setActiveTab('grammar')}
+                onClick={() => {
+                  setActiveTab('grammar');
+                  setError('');
+                  setTextSuggestions([]);
+                }}
                 className={`px-3 py-2 text-sm font-medium rounded-md ${
                   activeTab === 'grammar'
                     ? 'bg-blue-100 text-blue-700'
@@ -188,7 +214,11 @@ const AIWritingAssistant: React.FC<AIWritingAssistantProps> = ({
                 )}
               </button>
               <button
-                onClick={() => setActiveTab('complete')}
+                onClick={() => {
+                  setActiveTab('complete');
+                  setError('');
+                  setTextSuggestions([]);
+                }}
                 className={`px-3 py-2 text-sm font-medium rounded-md ${
                   activeTab === 'complete'
                     ? 'bg-blue-100 text-blue-700'
@@ -198,7 +228,11 @@ const AIWritingAssistant: React.FC<AIWritingAssistantProps> = ({
                 Complete
               </button>
               <button
-                onClick={() => setActiveTab('improve')}
+                onClick={() => {
+                  setActiveTab('improve');
+                  setError('');
+                  setTextSuggestions([]);
+                }}
                 className={`px-3 py-2 text-sm font-medium rounded-md ${
                   activeTab === 'improve'
                     ? 'bg-blue-100 text-blue-700'
@@ -276,16 +310,23 @@ const AIWritingAssistant: React.FC<AIWritingAssistantProps> = ({
                       disabled={loading || !content.trim()}
                       className="px-3 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
-                      Continue
+                      {loading ? 'Generating...' : 'Continue'}
                     </button>
                     <button
                       onClick={() => getTextCompletion('rephrase')}
                       disabled={loading || !content.trim()}
                       className="px-3 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
-                      Rephrase
+                      {loading ? 'Rephrasing...' : 'Rephrase'}
                     </button>
                   </div>
+                  
+                  {/* Error Message */}
+                  {error && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-md mb-3">
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  )}
                   
                   {textSuggestions.length > 0 && (
                     <div className="max-h-64 overflow-y-auto space-y-2">
@@ -302,6 +343,12 @@ const AIWritingAssistant: React.FC<AIWritingAssistantProps> = ({
                       ))}
                     </div>
                   )}
+                  
+                  {textSuggestions.length === 0 && !loading && !error && (
+                    <p className="text-sm text-gray-500 text-center py-4">
+                      Click "Continue" to extend your text or "Rephrase" to rewrite it differently.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -315,6 +362,13 @@ const AIWritingAssistant: React.FC<AIWritingAssistantProps> = ({
                   >
                     {loading ? 'Improving...' : 'Improve Writing'}
                   </button>
+                  
+                  {/* Error Message */}
+                  {error && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-md mb-3">
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  )}
                   
                   {textSuggestions.length > 0 && (
                     <div className="max-h-64 overflow-y-auto space-y-2">
@@ -338,6 +392,12 @@ const AIWritingAssistant: React.FC<AIWritingAssistantProps> = ({
                         </div>
                       ))}
                     </div>
+                  )}
+                  
+                  {textSuggestions.length === 0 && !loading && !error && (
+                    <p className="text-sm text-gray-500 text-center py-4">
+                      Click "Improve Writing" to get an enhanced version of your text with better clarity and engagement.
+                    </p>
                   )}
                 </div>
               )}
