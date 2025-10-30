@@ -25,10 +25,9 @@ export class GeminiService {
   // Get the best available model for free tier
   private getBestModel(): string {
     // Use the most reliable free tier model
-    // Try different model names based on API version compatibility
-    // For v1 API, use 'gemini-pro' or 'gemini-1.5-pro-latest'
-    // For newer APIs, 'gemini-1.5-flash-latest' or 'gemini-pro' work best
-    return 'gemini-2.5-flash'; // More stable across API versions
+    // Valid models: 'gemini-pro', 'gemini-1.5-flash', 'gemini-1.5-pro'
+    // gemini-1.5-flash is the best for free tier - fast and efficient
+    return 'gemini-1.5-flash';
   }
 
   async summarizeBlog(blogContent: string, blogTitle: string): Promise<BlogSummary> {
@@ -41,7 +40,7 @@ export class GeminiService {
     try {
       // Get the best model for free tier
       const modelName = this.getBestModel();
-      console.log('Using model:', modelName);
+      console.log('Using model for summarization:', modelName);
 
       // Clean HTML content - extract plain text
       const cleanContent = this.extractTextFromHTML(blogContent);
@@ -57,23 +56,86 @@ export class GeminiService {
         generationConfig: {
           temperature: 0.3, // Lower for more predictable output
           maxOutputTokens: 80, // Reduced to save quota
-        }
+        },
+        safetySettings: [
+          {
+            category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+          },
+        ]
       });
 
+      console.log('Sending summarization request to Gemini API...');
       const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      
+      console.log('Received summarization result');
+      
+      // Check for safety blocks or other issues
+      if (!result || !result.response) {
+        console.error('No response object from AI service for summarization');
+        throw new Error('No response from AI service');
+      }
+
+      const response = result.response;
+      
+      // Check if the response was blocked
+      if (response.promptFeedback?.blockReason) {
+        console.error('Summarization response blocked:', response.promptFeedback.blockReason);
+        throw new Error(`Content blocked: ${response.promptFeedback.blockReason}`);
+      }
+
+      // Check candidates
+      if (!response.candidates || response.candidates.length === 0) {
+        console.error('No candidates in summarization response');
+        throw new Error('AI service returned no content candidates');
+      }
+
+      const candidate = response.candidates[0];
+      
+      // Check if candidate was blocked
+      if (candidate.finishReason && candidate.finishReason !== 'STOP' && candidate.finishReason !== 'MAX_TOKENS') {
+        console.error('Summarization stopped with reason:', candidate.finishReason);
+        throw new Error(`Content generation stopped: ${candidate.finishReason}`);
+      }
+
+      // Extract text
+      let text = '';
+      try {
+        text = response.text();
+      } catch (textError: any) {
+        console.error('Error extracting summary text:', textError);
+        
+        // Try to extract text manually from candidate
+        if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+          text = candidate.content.parts.map((part: any) => part.text || '').join('');
+        }
+      }
 
       if (text && text.trim()) {
+        console.log('Summary generated successfully, length:', text.length);
         return {
           summary: text.trim()
         };
       } else {
+        console.error('Empty text after extraction in summarization');
         throw new Error('Empty response from API');
       }
 
     } catch (error) {
-      console.error('Model failed - quota likely exceeded, using fallback:', error);
+      console.error('Summarization failed - using fallback:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
 
       // No retry attempts - go directly to fallback to preserve quota
       console.log('Using intelligent fallback to preserve quota');
