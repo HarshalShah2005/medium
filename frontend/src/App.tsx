@@ -7,6 +7,7 @@ import { Publish } from './pages/Publish';
 import { Profile } from './pages/Profile';
 import DemoAISummary from './pages/DemoAISummary';
 import { Landing } from './pages/Landing';
+import { TestAI } from './pages/TestAI';
 
 function App() {
 
@@ -27,6 +28,7 @@ function App() {
           <Route path="/publish" element={<Publish />} />
           <Route path="/profile/:id" element={<Profile />} />
           <Route path="/demo-ai" element={<DemoAISummary />} />
+          <Route path="/test-ai" element={<TestAI />} />
         </Routes>
       </BrowserRouter>
     </>

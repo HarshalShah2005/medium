@@ -10,53 +10,23 @@ export class GeminiService {
 
   constructor() {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (apiKey && apiKey.trim() !== '') {
-      this.apiKey = apiKey;
-      this.genAI = new GoogleGenerativeAI(apiKey);
+    // Remove quotes if present in the env variable
+    const cleanApiKey = apiKey?.replace(/^["']|["']$/g, '').trim();
+    
+    if (cleanApiKey && cleanApiKey.length > 0) {
+      this.apiKey = cleanApiKey;
+      this.genAI = new GoogleGenerativeAI(cleanApiKey);
+      console.log('Gemini API initialized successfully');
     } else {
       console.warn('Gemini API key not found. AI summaries will use fallback.');
     }
   }
 
-  // List available models and filter for best free tier option
-  async listAvailableModels(): Promise<string[]> {
-    if (!this.genAI || !this.apiKey) {
-      return [];
-    }
-
-    try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${this.apiKey}`);
-      const data = await response.json();
-
-      if (data.models) {
-        const allModels = data.models
-          .filter((model: any) => model.supportedGenerationMethods?.includes('generateContent'))
-          .map((model: any) => model.name.replace('models/', ''));
-
-        // Prioritize the most efficient free tier models to avoid quota issues
-        const preferredModels = [
-          'gemini-2.5-flash-lite',
-          'gemini-2.0-flash-lite',
-          'gemini-2.5-flash',
-          'gemini-2.0-flash'
-        ];
-        // Find the first available preferred model
-        for (const preferred of preferredModels) {
-          if (allModels.includes(preferred)) {
-            console.log('Using preferred efficient model:', preferred);
-            return [preferred]; // Return only one model to avoid quota exhaustion
-          }
-        }
-
-        // If no preferred models, use the first available one
-        console.log('Using first available model:', allModels[0]);
-        return allModels.slice(0, 1); // Return only one model
-      }
-      return [];
-    } catch (error) {
-      console.error('Failed to list models:', error);
-      return [];
-    }
+  // Get the best available model for free tier
+  private getBestModel(): string {
+    // Use the most reliable free tier model
+    // gemini-1.5-flash is the most stable and widely available free model
+    return 'gemini-1.5-flash';
   }
 
   async summarizeBlog(blogContent: string, blogTitle: string): Promise<BlogSummary> {
@@ -67,17 +37,9 @@ export class GeminiService {
     }
 
     try {
-      // Get the single best model for free tier
-      const availableModels = await this.listAvailableModels();
-
-      if (availableModels.length === 0) {
-        console.warn('No available models found, using fallback');
-        return this.createFallbackSummary(blogTitle, blogContent);
-      }
-
-      // Use only the first (best) available model - no fallback attempts to preserve quota
-      const modelName = availableModels[0];
-      console.log('Using single model to preserve quota:', modelName);
+      // Get the best model for free tier
+      const modelName = this.getBestModel();
+      console.log('Using model:', modelName);
 
       // Clean HTML content - extract plain text
       const cleanContent = this.extractTextFromHTML(blogContent);
@@ -164,17 +126,9 @@ export class GeminiService {
     }
 
     try {
-      // Get the single best model for free tier
-      const availableModels = await this.listAvailableModels();
-
-      if (availableModels.length === 0) {
-        console.error('No available models found');
-        return false;
-      }
-
-      // Use the single recommended model
-      const testModel = availableModels[0];
-      console.log('Testing connection with quota-efficient model:', testModel);
+      // Get the best model for free tier
+      const testModel = this.getBestModel();
+      console.log('Testing connection with model:', testModel);
 
       const model = this.genAI.getGenerativeModel({
         model: testModel,
@@ -200,15 +154,8 @@ export class GeminiService {
     }
 
     try {
-      // Get the single best model for free tier
-      const availableModels = await this.listAvailableModels();
-
-      if (availableModels.length === 0) {
-        console.warn('No available models found');
-        return '';
-      }
-
-      const modelName = availableModels[0];
+      // Get the best model for free tier
+      const modelName = this.getBestModel();
 
       const model = this.genAI.getGenerativeModel({
         model: modelName,

@@ -119,68 +119,50 @@ class AIWritingService {
    */
   async getTextCompletion(request: TextCompletionRequest): Promise<TextCompletionResult> {
     try {
+      if (!request.text || request.text.trim().length === 0) {
+        throw new Error('No text provided for completion');
+      }
+
+      // Limit text length to avoid quota issues
+      const limitedText = request.text.substring(0, 800);
       let prompt = '';
       
       switch (request.type) {
         case 'continue':
-          prompt = `Continue writing this blog post in a natural, engaging way. Keep the same tone and style:
-
-${request.text}
-
-Continue the text naturally (provide only the continuation, not the original text):`;
+          prompt = `Continue this text naturally. Provide ONLY the continuation (2-3 sentences):\n\n${limitedText}\n\nContinuation:`;
           break;
           
         case 'improve':
-          prompt = `Improve this text to make it more engaging, clear, and well-written while keeping the same meaning:
-
-${request.text}
-
-Improved version:`;
+          prompt = `Improve this text to make it more engaging and clear. Provide ONLY the improved version:\n\n${limitedText}\n\nImproved:`;
           break;
           
         case 'rephrase':
-          prompt = `Rephrase this text in a different way while keeping the same meaning:
-
-${request.text}
-
-Rephrased version:`;
+          prompt = `Rephrase this text while keeping the same meaning. Provide ONLY the rephrased version:\n\n${limitedText}\n\nRephrased:`;
           break;
           
         case 'summarize':
-          prompt = `Summarize this text concisely:
-
-${request.text}
-
-Summary:`;
+          prompt = `Summarize this text in 2-3 sentences:\n\n${limitedText}\n\nSummary:`;
           break;
           
         default:
-          prompt = `Continue writing this blog post in a natural, engaging way:
-
-${request.text}
-
-Continuation:`;
+          prompt = `Continue this text naturally (2-3 sentences):\n\n${limitedText}\n\nContinuation:`;
       }
 
-      const response = await geminiService.generateContent(prompt);
+      const response = await geminiService.generateContent(prompt, 250);
       
-      // Generate alternative suggestions
-      const alternativePrompts = [
-        `Provide an alternative way to ${request.type || 'continue'} this text: ${request.text}`,
-        `Give another version of ${request.type || 'continuing'} this text: ${request.text}`
-      ];
-      
-      const alternatives = await Promise.all(
-        alternativePrompts.map((p: string) => geminiService.generateContent(p).catch(() => ''))
-      );
+      if (!response || response.trim().length === 0) {
+        throw new Error('Empty response from AI service');
+      }
 
+      // For better results, only get one main suggestion to save quota
+      // Don't generate multiple alternatives to avoid quota exhaustion
       return {
-        completion: response,
-        suggestions: alternatives.filter((alt: string) => alt.trim().length > 0)
+        completion: response.trim(),
+        suggestions: [] // Simplified to avoid quota issues
       };
     } catch (error) {
       console.error('Text completion error:', error);
-      throw new Error('Failed to generate text completion. Please try again.');
+      throw new Error('Failed to generate text completion. Please check your internet connection and try again.');
     }
   }
 
@@ -244,18 +226,64 @@ Return only the suggestions, one per line:`;
    */
   async getTitleSuggestions(content: string): Promise<string[]> {
     try {
-      const prompt = `Based on this blog post content, suggest 5 engaging and SEO-friendly titles:
+      if (!content || content.trim().length === 0) {
+        console.warn('No content provided for title suggestions');
+        return [];
+      }
 
-${content.substring(0, 500)}...
+      // Limit content length
+      const limitedContent = content.substring(0, 500);
+      
+      const prompt = `Based on this blog post content, suggest 5 engaging and SEO-friendly titles. Return ONLY the titles, one per line, without numbering or extra formatting:
 
-Provide only the titles, one per line:`;
+Content: ${limitedContent}
 
-      const response = await geminiService.generateContent(prompt);
-      return response.split('\n').filter((line: string) => line.trim().length > 0).slice(0, 5);
+Titles:`;
+
+      const response = await geminiService.generateContent(prompt, 300);
+      
+      if (!response || response.trim().length === 0) {
+        console.warn('Empty response from Gemini for title suggestions');
+        return this.generateFallbackTitles(limitedContent);
+      }
+
+      // Clean up the response - remove numbering, bullets, quotes
+      const titles = response
+        .split('\n')
+        .map((line: string) => line.trim())
+        .filter((line: string) => line.length > 0)
+        .map((line: string) => {
+          // Remove common prefixes like "1.", "•", "-", quotes
+          return line.replace(/^[\d\.\-\•\*]+\s*/, '').replace(/^["']|["']$/g, '').trim();
+        })
+        .filter((line: string) => line.length > 10) // Filter out very short lines
+        .slice(0, 5);
+
+      if (titles.length === 0) {
+        return this.generateFallbackTitles(limitedContent);
+      }
+
+      return titles;
     } catch (error) {
       console.error('Title suggestions error:', error);
-      return [];
+      return this.generateFallbackTitles(content.substring(0, 500));
     }
+  }
+
+  /**
+   * Generate fallback title suggestions when AI is unavailable
+   */
+  private generateFallbackTitles(content: string): string[] {
+    const words = content.split(' ').filter(w => w.length > 3).slice(0, 20);
+    const uniqueWords = [...new Set(words)].slice(0, 5);
+    
+    return [
+      `Understanding ${uniqueWords[0] || 'This Topic'}`,
+      `A Guide to ${uniqueWords[1] || 'This Subject'}`,
+      `Everything You Need to Know About ${uniqueWords[2] || 'This'}`,
+      `${uniqueWords[3] || 'Insights'}: A Comprehensive Overview`,
+      `The Complete Guide to ${uniqueWords[4] || 'This Topic'}`
+    ].filter(title => title.length > 10);
   }
 
   /**
