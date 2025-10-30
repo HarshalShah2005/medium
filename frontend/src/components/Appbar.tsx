@@ -15,7 +15,7 @@ export const Appbar = () => {
 
             {userId && (
                 <Link to={`/profile/${userId}`}>
-                    <Avatar size={"big"} name="harkirat" />
+                    <Avatar size={"big"} name="satish" />
                 </Link>
             )}
         </div>
