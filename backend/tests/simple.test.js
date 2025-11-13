@@ -1,3 +1,6 @@
+// npm test -- tests/db.test.js
+
+
 import { jest, describe, test, beforeEach, afterEach, expect } from '@jest/globals';
 // ============= MOCKS SETUP =============
 // Mock PrismaClient
